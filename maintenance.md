@@ -1,46 +1,59 @@
-# Maintenance
+# Maintenance Notes
 
-- Change `Run` methods to `Start`+`Stop`, returning channels rather than injecting them
-- Go 1.18
-  - gofumpt
-  - Use netip
-- Split servers.json
-- Common slice of Wireguard providers in config settings
-- DNS block lists as LFS and built in image
-- Add HTTP server v3 as json rpc
-- Use `github.com/qdm12/ddns-updater/pkg/publicip`
-- Windows and Darwin development support
+## Fork Scope
 
-## Features
+This is a stripped-down fork of [qdm12/gluetun](https://github.com/qdm12/gluetun) targeting AirVPN + WireGuard only.
 
-- Authentication with the control server
-- Get announcement from Github file
-- Support multiple connections in custom ovpn
-- Automate IPv6 detection for OpenVPN
+### What was removed (phase 1)
 
-## Gluetun V4
+- All VPN providers except AirVPN
+- OpenVPN support (WireGuard only)
+- AmneziaWG
+- Shadowsocks proxy
+- HTTP proxy
+- DNS-over-TLS and DNS block lists
+- PMTUD (Path MTU Discovery tooling)
+- boringpoll
+- Server list updater (AirVPN servers are fetched at runtime)
+- CLI subcommands: `genkey`, `openvpnconfig`, `formatservers`, `clientkey`, `update`, `ci`
 
-- Remove retro environment variables:
-  - `PORT`
-  - `UNBLOCK`
-  - `PROTOCOL`
-  - `PIA_ENCRYPTION`
-  - `PORT_FORWARDING`, `PRIVATE_INTERNET_ACCESS_VPN_PORT_FORWARDING`
-  - `WIREGUARD_PORT`
-  - `REGION` for PIA, Cyberghost
-  - `WIREGUARD_ADDRESS`
-  - `VPNSP`
-  - All old location filters such as `REGION`, `COUNTRY`, etc.
-- Remove other retro logic
-  - `VPNSP`'s `pia = private ...`
-  - Remove `OPENVPN_CONFIG` != "" implies `VPNSP` = "custom" AND set `OPENVPN_CUSTOM_CONFIG` default to `/gluetun/custom.ovpn`
-- Remove functionalities
-  - `SERVER_NUMBER`
-  - `SERVER_NAME`
-  - `PUBLICIP_FILE`
-  - `PORT_FORWARDING_STATUS_FILE`, `PRIVATE_INTERNET_ACCESS_VPN_PORT_FORWARDING_STATUS_FILE`
-- Updater servers version reset to 1
-- Reset HTTP server version to v1 and remove older ones
-- Change to compulsory
-  - `VPN_SERVICE_PROVIDER`
-- Use relative paths everywhere instead of absolute
+### What remains
+
+- WireGuard (kernelspace and userspace)
+- AirVPN provider + server selection (country, city, name)
+- Port forwarding (`FIREWALL_VPN_INPUT_PORTS`)
+- Kill switch / firewall
+- Health check endpoint
+- Public IP reporting
+- `network_mode: service:gluetun` container routing
+
+## Syncing from Upstream
+
+The fork tracks `qdm12/gluetun` master. To pull upstream fixes:
+
+```bash
+git fetch upstream
+git rebase upstream/master
+# resolve conflicts — most will be in files we deleted or providers.go
+```
+
+Files that will always conflict:
+- `internal/constants/providers/providers.go` — we keep only `airvpn`
+- `internal/provider/providers.go` — we keep only the AirVPN case
+- `internal/configuration/settings/settings.go` — removed features
+- `cmd/gluetun/main.go` — removed feature wiring
+
+## Release Process
+
+1. Test locally with a real AirVPN WireGuard config
+2. Bump version tag: `git tag vX.Y.Z`
+3. Push tag — GitHub Actions builds and pushes `ghcr.io/wolffcatskyy/gluetun-airvpn-edition`
+
+## Known Differences from Upstream
+
+- No `VPN_TYPE=openvpn` support — will error
+- No provider other than `airvpn` supported — will error
+- No `HTTP_PROXY=on` — removed
+- No `SHADOWSOCKS=on` — removed
+- No `DNS_OVER_TLS` — removed; uses system DNS
+- No server list auto-update (`UPDATER_PERIOD`) — removed
